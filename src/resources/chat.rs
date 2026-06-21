@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::client::{Client, Json};
 use crate::error::Error;
+use crate::stream::Stream;
 
 /// OpenAI-compatible chat completions, optionally grounded with web search.
 pub struct Chat<'a> {
@@ -61,6 +62,16 @@ impl<'a> ChatCompletions<'a> {
     pub async fn create_raw(&self, body: Value) -> Result<Json, Error> {
         self.client
             .request(Method::POST, "/v1/chat/completions", Some(&body), &[])
+            .await
+    }
+
+    /// Stream a chat completion as OpenAI-style chunks. Read token text from
+    /// each event's `choices[0].delta.content`.
+    pub async fn create_stream(&self, params: ChatParams) -> Result<Stream, Error> {
+        let mut p = params;
+        p.stream = Some(true);
+        self.client
+            .open_stream(Method::POST, "/v1/chat/completions", Some(&p))
             .await
     }
 }

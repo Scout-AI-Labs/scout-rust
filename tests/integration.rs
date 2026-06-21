@@ -1,6 +1,6 @@
 //! End-to-end tests against a wiremock server. Run with `cargo test`.
 
-use scout_sdk::{Client, DomainParams, SearchParams, SiteCrawlParams};
+use scout_sdk::{ChatMessage, ChatParams, Client, DomainParams, SearchParams, SiteCrawlParams};
 use serde_json::json;
 use wiremock::matchers::{header, header_exists, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -108,4 +108,68 @@ async fn list_all_collects_a_page() {
 
     let items = client(server.uri()).search().list_all().await.unwrap();
     assert_eq!(items.len(), 1);
+}
+
+#[tokio::test]
+async fn chat_stream_yields_deltas() {
+    let server = MockServer::start().await;
+    let body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n\
+                data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n\
+                data: [DONE]\n\n";
+    Mock::given(method("POST"))
+        .and(path("/v1/chat/completions"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/event-stream")
+                .set_body_string(body),
+        )
+        .mount(&server)
+        .await;
+
+    let c = client(server.uri());
+    let mut stream = c
+        .chat()
+        .completions()
+        .create_stream(ChatParams {
+            messages: vec![ChatMessage {
+                role: "user".into(),
+                content: "hi".into(),
+            }],
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+
+    let mut content = String::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.unwrap();
+        content.push_str(chunk["choices"][0]["delta"]["content"].as_str().unwrap());
+    }
+    assert_eq!(content, "Hello");
+}
+
+#[tokio::test]
+async fn stream_events_yields_events() {
+    let server = MockServer::start().await;
+    let body = ": keepalive\n\n\
+                event: run.progress\ndata: {\"type\":\"run.progress\"}\n\n\
+                event: run.completed\ndata: {\"type\":\"run.completed\"}\n\n";
+    Mock::given(method("GET"))
+        .and(path("/v1/searches/abc/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "text/event-stream")
+                .set_body_string(body),
+        )
+        .mount(&server)
+        .await;
+
+    let c = client(server.uri());
+    let mut stream = c.search().stream_events("abc").await.unwrap();
+    let mut types: Vec<String> = Vec::new();
+    while let Some(evt) = stream.next().await {
+        let evt = evt.unwrap();
+        types.push(evt["type"].as_str().unwrap().to_string());
+    }
+    assert_eq!(types, vec!["run.progress", "run.completed"]);
 }

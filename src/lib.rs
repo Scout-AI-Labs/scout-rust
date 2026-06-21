@@ -22,7 +22,9 @@
 mod client;
 mod error;
 mod resources;
+mod stream;
 
 pub use client::{Client, ClientBuilder, Json, VERSION};
 pub use error::{Error, API_VERSION};
 pub use resources::*;
+pub use stream::Stream;

@@ -5,6 +5,7 @@ use serde_json::Value;
 use super::search::urlencode;
 use crate::client::{Client, Json};
 use crate::error::Error;
+use crate::stream::Stream;
 
 /// Find-all ("lists"): build a list of entities matching a query, then enrich
 /// or extend the run.
@@ -103,6 +104,14 @@ impl<'a> ListRuns<'a> {
         let path = format!("/v1/lists/runs/{}/events", urlencode(findall_id));
         self.client
             .request(Method::GET, &path, None::<&Value>, &[])
+            .await
+    }
+
+    /// Stream a find-all run's progress events live (SSE).
+    pub async fn stream_events(&self, findall_id: &str) -> Result<Stream, Error> {
+        let path = format!("/v1/lists/runs/{}/events", urlencode(findall_id));
+        self.client
+            .open_stream(Method::GET, &path, None::<&Value>)
             .await
     }
 }

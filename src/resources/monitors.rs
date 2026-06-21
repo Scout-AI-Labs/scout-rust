@@ -5,6 +5,7 @@ use serde_json::Value;
 use super::search::urlencode;
 use crate::client::{Client, Json};
 use crate::error::Error;
+use crate::stream::Stream;
 
 /// Scheduled searches ("monitors"): run a query on a cadence, deliver via webhook.
 pub struct Monitors<'a> {
@@ -126,6 +127,14 @@ impl<'a> Monitors<'a> {
         let path = format!("/v1/monitors/{}/events", urlencode(monitor_id));
         self.client
             .request(Method::GET, &path, None::<&Value>, &[])
+            .await
+    }
+
+    /// Stream a monitor's events live (SSE).
+    pub async fn stream_events(&self, monitor_id: &str) -> Result<Stream, Error> {
+        let path = format!("/v1/monitors/{}/events", urlencode(monitor_id));
+        self.client
+            .open_stream(Method::GET, &path, None::<&Value>)
             .await
     }
 }

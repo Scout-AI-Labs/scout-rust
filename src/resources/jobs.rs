@@ -5,6 +5,7 @@ use serde_json::Value;
 use super::search::urlencode;
 use crate::client::{Client, Json};
 use crate::error::Error;
+use crate::stream::Stream;
 
 /// Async tasks ("jobs"): submit a task, then poll or stream events.
 pub struct Jobs<'a> {
@@ -67,6 +68,14 @@ impl<'a> Jobs<'a> {
         let path = format!("/v1/jobs/{}/events", urlencode(task_id));
         self.client
             .request(Method::GET, &path, None::<&Value>, &[])
+            .await
+    }
+
+    /// Stream a job's progress events live (SSE).
+    pub async fn stream_events(&self, task_id: &str) -> Result<Stream, Error> {
+        let path = format!("/v1/jobs/{}/events", urlencode(task_id));
+        self.client
+            .open_stream(Method::GET, &path, None::<&Value>)
             .await
     }
 

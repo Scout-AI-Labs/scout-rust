@@ -108,6 +108,32 @@ let client = Client::builder()
 let all_runs = client.search().list_all().await?; // walks every page
 ```
 
+## Streaming
+
+Stream chat completions and live run progress (search, jobs, find-all, monitors) with a `Stream`:
+
+```rust
+use scout_sdk::{ChatParams, ChatMessage};
+
+let mut stream = client.chat().completions().create_stream(ChatParams {
+    messages: vec![ChatMessage { role: "user".into(), content: "Summarize EU AI regulation.".into() }],
+    ..Default::default()
+}).await?;
+
+while let Some(chunk) = stream.next().await {
+    let chunk = chunk?; // a serde_json::Value; read choices[0].delta.content
+    print!("{}", chunk["choices"][0]["delta"]["content"].as_str().unwrap_or(""));
+}
+
+// Live progress events:
+let mut events = client.search().stream_events(&search_id).await?;
+while let Some(event) = events.next().await {
+    println!("{}", event?["type"]);
+}
+```
+
+`stream_events` is also available on `jobs()`, `lists().runs()`, and `monitors()`.
+
 ## Versioning
 
 This SDK follows [SemVer](https://semver.org/) and sends the targeted Scout API version on every request; see [`CHANGELOG.md`](./CHANGELOG.md). API reference renders on [docs.rs](https://docs.rs/scout-sdk).

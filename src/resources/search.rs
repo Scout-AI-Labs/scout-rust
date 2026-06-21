@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::client::{Client, Json};
 use crate::error::Error;
+use crate::stream::Stream;
 
 /// Web search, agentic AI queries, and search-run history.
 pub struct Search<'a> {
@@ -98,6 +99,14 @@ impl<'a> Search<'a> {
         let path = format!("/v1/searches/{}/events", urlencode(search_id));
         self.client
             .request(Method::GET, &path, None::<&Value>, &[])
+            .await
+    }
+
+    /// Stream a deep-search run's progress events live (SSE).
+    pub async fn stream_events(&self, search_id: &str) -> Result<Stream, Error> {
+        let path = format!("/v1/searches/{}/events", urlencode(search_id));
+        self.client
+            .open_stream(Method::GET, &path, None::<&Value>)
             .await
     }
 }

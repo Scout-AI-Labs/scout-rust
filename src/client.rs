@@ -12,6 +12,7 @@ use crate::error::{api_error, Error, API_VERSION};
 use crate::resources::{
     Chat, Company, Extract, Jobs, Lists, Monitors, Page, Products, Search, Site,
 };
+use crate::stream::Stream;
 
 /// The version of this SDK crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -188,6 +189,45 @@ impl Client {
             return Ok(parsed.unwrap_or(Value::Null));
         }
         Err(api_error(status, request_id, retry_after, parsed))
+    }
+
+    /// Internal: open a streaming (SSE) request. No retries.
+    pub(crate) async fn open_stream<B: Serialize + ?Sized>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&B>,
+    ) -> Result<Stream, Error> {
+        let url = format!("{}{}", self.base_url, path);
+        let mut req = self
+            .http
+            .request(method, &url)
+            .bearer_auth(&self.api_key)
+            .header(ACCEPT, "text/event-stream")
+            .header(USER_AGENT, format!("scout-rust/{VERSION}"))
+            .header("Scout-Version", API_VERSION);
+        if let Some(b) = body {
+            let bytes = serde_json::to_vec(b).map_err(|e| Error::Decode(e.to_string()))?;
+            req = req
+                .header(CONTENT_TYPE, "application/json")
+                .header("Idempotency-Key", new_id())
+                .body(bytes);
+        }
+
+        let resp = req.send().await?;
+        let status = resp.status().as_u16();
+        if !(200..300).contains(&status) {
+            let request_id = header(&resp, "x-request-id");
+            let retry_after = header(&resp, "retry-after");
+            let bytes = resp.bytes().await?;
+            let parsed: Option<Value> = if bytes.is_empty() {
+                None
+            } else {
+                Some(serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+            };
+            return Err(api_error(status, request_id, retry_after, parsed));
+        }
+        Ok(Stream::from_response(resp))
     }
 }
 
