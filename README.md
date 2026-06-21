@@ -1,10 +1,10 @@
 # Scout Rust SDK
 
-Official Rust SDK for the [Scout](https://usescout.sh) web-intelligence API — search, scrape, screenshot, extract, crawl, and company enrichment.
+Official Rust SDK for the [Scout](https://usescout.sh) web-intelligence API: search, scrape, screenshot, extract, crawl, and company enrichment.
 
-- **Minimal, audited dependencies.** `reqwest` + `serde` + `tokio` + `thiserror` — the idiomatic async core, nothing more.
-- **Async + typed.** Builder-configured client, typed params, a `thiserror` error enum.
-- **Resilient.** Automatic retries with backoff + jitter, configurable timeouts, idempotency keys.
+- Built on `reqwest`, `serde`, `tokio`, and `thiserror`.
+- Async, with a builder-configured client, typed params, and a `thiserror` error enum.
+- Automatic retries with backoff and jitter, configurable timeouts, and idempotency keys on writes.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ cargo add scout-sdk
 
 ## Authentication
 
-Create an API key in the [Scout dashboard](https://usescout.sh). The client reads `SCOUT_API_KEY` from the environment:
+Generate an API key at [platform.usescout.sh/settings](https://platform.usescout.sh/settings). The client reads `SCOUT_API_KEY` from the environment:
 
 ```rust
 use scout_sdk::Client;
@@ -90,7 +90,7 @@ Helpers: `is_authentication` (401), `is_insufficient_credits` (402), `is_not_fou
 
 ## Retries & timeouts
 
-Transient failures (connection errors, timeouts, 408/409/429/5xx) are retried automatically — **2 times by default**, with exponential backoff + jitter, honoring `Retry-After`. Write methods send an auto-generated `Idempotency-Key`.
+Transient failures (connection errors, timeouts, 408/409/429/5xx) are retried automatically, **2 times by default**, with exponential backoff and jitter, honoring `Retry-After`. Write methods send an auto-generated `Idempotency-Key`.
 
 ```rust
 use std::time::Duration;
