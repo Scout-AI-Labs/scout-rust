@@ -264,7 +264,7 @@ fn backoff(attempt: u32, err: &Error) -> Duration {
         ..
     } = err
     {
-        return Duration::from_secs_f64(secs.min(60.0).max(0.0));
+        return Duration::from_secs_f64(secs.clamp(0.0, 60.0));
     }
     let base_ms = (500u64 * (1u64 << attempt)).min(8_000);
     Duration::from_millis((base_ms as f64 * jitter()) as u64)
